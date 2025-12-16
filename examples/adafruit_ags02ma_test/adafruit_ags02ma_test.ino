@@ -1,6 +1,7 @@
-/* Note this sensor is very very picky about I2C speed - it wants maximum 20KHz which is way 
+/* Note this sensor is very very picky about I2C speed - it wants maximum 20KHz which is way
  *  below the standard 100KHz. Not all Arduino-compatible platforms successfully set the clock
- *  speed that low. We've tested this library with Atmega328 (Arduino UNO etc) and ESP32 sucessfully!
+ *  speed that low. The sensor also takes several minutes after initial power before returning
+ *  valid data. We've tested this library with Atmega328 (Arduino UNO etc) and ESP32 sucessfully!
  */
 
 #include "Adafruit_AGS02MA.h"
@@ -31,17 +32,7 @@ void setup() {
 }
 
 void loop() {
-  uint32_t resistance = ags.getGasResistance();
   uint32_t tvoc = ags.getTVOC();
-  
-  if (resistance == 0) {
-    Serial.println(F("Failure reading resistance, I2C communications issue?"));
-  } else {
-    float kohm = resistance / 1000.0;
-    Serial.print(F("Gas resistance: "));
-    Serial.print(kohm);
-    Serial.println(" Kohms");
-  }
 
   if (tvoc == 0) {
     Serial.println(F("Failure reading TVOC, I2C communications issue?"));
@@ -51,5 +42,5 @@ void loop() {
     Serial.println(" ppb");
   }
 
-  delay(1000);
+  delay(2000);
 }
