@@ -32,8 +32,6 @@
  *     v1.0 - First release
  */
 
-#include "Arduino.h"
-
 #include "Adafruit_AGS02MA.h"
 
 static uint8_t crc8(const uint8_t *data, int len);
@@ -74,6 +72,9 @@ bool Adafruit_AGS02MA::begin(TwoWire *wire, uint8_t i2caddr,
 
   _sensorID = sensor_id;
 
+  lastData = 0;
+  lastCommand = 0;
+
   return true;
 }
 
@@ -85,37 +86,46 @@ bool Adafruit_AGS02MA::begin(TwoWire *wire, uint8_t i2caddr,
 /**************************************************************************/
 uint32_t Adafruit_AGS02MA::getFirmwareVersion(void) {
   uint32_t vers = 0;
-  if (!_readReg(_AGS02MA_VERSION_REG, 30, &vers)) {
+  if (!_readReg(_AGS02MA_VERSION_REG, &vers)) {
     return 0;
   }
+  delay(_AGS02MA_COMMAND_DELAY);
   return vers;
 }
 
 /**************************************************************************/
 /*!
     @brief  Gets the most recent gas resistance reading
-    @returns 0 on I2C failure, otherwise, the resistance in Ohms
+    @returns 0 on failure, otherwise, the resistance in Ohms
 */
 /**************************************************************************/
 uint32_t Adafruit_AGS02MA::getGasResistance(void) {
-  uint32_t res = 0;
-  if (!_readReg(_AGS02MA_GASRES_REG, 1500, &res)) {
+  if (lastData && ((millis() - lastData) < _AGS02MA_DATA_DELAY)) {
     return 0;
   }
+  uint32_t res = 0;
+  if (!_readReg(_AGS02MA_GASRES_REG, &res)) {
+    return 0;
+  }
+  lastData = millis();
   return res * 100;
 }
 
 /**************************************************************************/
 /*!
     @brief  Gets the most recent TVOC reading
-    @returns 0 on I2C failure, otherwise, the 24-bit ppb reading
+    @returns 0 on failure, otherwise, the 24-bit ppb reading
 */
 /**************************************************************************/
 uint32_t Adafruit_AGS02MA::getTVOC(void) {
-  uint32_t tvoc = 0;
-  if (!_readReg(_AGS02MA_TVOCSTAT_REG, 1500, &tvoc)) {
+  if (lastData && ((millis() - lastData) < _AGS02MA_DATA_DELAY)) {
     return 0;
   }
+  uint32_t tvoc = 0;
+  if (!_readReg(_AGS02MA_TVOCSTAT_REG, &tvoc)) {
+    return 0;
+  }
+  lastData = millis();
   return tvoc & 0xFFFFFF;
 }
 
@@ -136,22 +146,25 @@ bool Adafruit_AGS02MA::setAddress(uint8_t new_addr) {
   buf[4] = buf[2] = ~new_addr;
   buf[5] = crc8(buf + 1, 4);
 
-  return i2c_dev->write(buf, 6);
+  if (!i2c_dev->write(buf, 6)) {
+    return false;
+  }
+
+  delay(_AGS02MA_COMMAND_DELAY);
+
+  return true;
 }
 
-bool Adafruit_AGS02MA::_readReg(uint8_t addr, uint16_t delayms,
-                                uint32_t *value) {
+bool Adafruit_AGS02MA::_readReg(uint8_t addr, uint32_t *value) {
   uint8_t buf[5];
 
   buf[0] = addr;
   if (!i2c_dev->write(buf, 1)) {
     return false;
   }
-  delay(delayms);
   if (!i2c_dev->read(buf, 5)) {
     return false;
   }
-
   if (crc8(buf, 4) != buf[4]) {
     return false;
   }

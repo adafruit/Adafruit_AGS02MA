@@ -30,6 +30,10 @@
 #define _AGS02MA_CRC8_INIT 0xFF       ///< CRC8 init val
 #define _AGS02MA_CRC8_POLYNOMIAL 0x31 ///< CRC8 polynomial
 
+#define _AGS02MA_MODE_DELAY 2000  ///< Mode change delay (ms)
+#define _AGS02MA_DATA_DELAY 1500  ///< Data collection delay (ms)
+#define _AGS02MA_COMMAND_DELAY 30 ///< Write command delay (ms)
+
 /*!
  *    @brief  Class that stores state and functions for interacting with
  *            the AGS02MA gas sensor
@@ -51,7 +55,8 @@ public:
   void getSensor(sensor_t *sensor);
 
 private:
-  bool _readReg(uint8_t addr, uint16_t delayms, uint32_t *value);
+  bool _readReg(uint8_t addr, uint32_t *value);
+  unsigned long lastData, lastCommand;
 
   Adafruit_I2CDevice *i2c_dev = NULL; ///< Pointer to I2C bus interface
   uint32_t _sensorID = 0;
